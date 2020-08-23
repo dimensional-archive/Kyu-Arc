@@ -1,8 +1,7 @@
-import { EventDispatcher, Client as DiscordClient } from "@kyudiscord/neo";
-import { ClientSocket, Client as VezaClient, NodeMessage } from "veza";
+import { Client as DiscordClient, Client, EventDispatcher } from "@kyudiscord/neo";
+import { Client as VezaClient, ClientSocket, NodeMessage } from "veza";
 import { createContext, runInContext } from "vm";
-import { IPCEvents } from "../../util/constants";
-import { makeError } from "../../util/Util";
+import { IPCEvent, makeError } from "../../util";
 
 export class ClusterIPC<C extends DiscordClient> extends EventDispatcher {
   public readonly discord: C;
@@ -39,7 +38,7 @@ export class ClusterIPC<C extends DiscordClient> extends EventDispatcher {
     this.socket = socket;
 
     this.discord = discord;
-    this.client = new VezaClient(`Cluster ${id}`)
+    this.client = new VezaClient(`cluster-${id}`)
       .on("error", e => this.emit("error", e))
       .on("disconnect", c => this.emit("warn", `[IPC] Disconnected from ${c.name}`))
       .on("ready", c => this.emit("debug", `[IPC] Connected to: ${c.name}`))
@@ -64,13 +63,13 @@ export class ClusterIPC<C extends DiscordClient> extends EventDispatcher {
    * Broadcasts a script to all clusters.
    * @param script The script to broadcast.
    */
-  public async broadcast<T>(script: string | CallableFunction): Promise<T[]> {
+  public async broadcast<T>(script: EvalScript): Promise<T[]> {
     script = typeof script === "function"
       ? `(${script})(this)`
       : script;
 
     const { success, d } = await this.server.send({
-      op: IPCEvents.BROADCAST,
+      op: IPCEvent.BROADCAST,
       d: script
     }) as IPCResult;
 
@@ -82,13 +81,13 @@ export class ClusterIPC<C extends DiscordClient> extends EventDispatcher {
    * Evaluates a script on the master process.
    * @param script The script to evaluate.
    */
-  public async masterEval<T>(script: string | CallableFunction): Promise<T> {
+  public async masterEval<T>(script: EvalScript): Promise<T> {
     script = typeof script === "function"
       ? `(${script})(this)`
       : script;
 
     const { success, d } = await this.server.send({
-      op: IPCEvents.MASTER_EVAL,
+      op: IPCEvent.MASTER_EVAL,
       d: script
     }) as IPCResult;
 
@@ -101,7 +100,7 @@ export class ClusterIPC<C extends DiscordClient> extends EventDispatcher {
    * @param script The code to evaluate.
    */
   private _eval(script: string): unknown {
-    const context = createContext({ "this": this.discord });
+    const context = createContext(this.discord);
     return runInContext(script, context);
   }
 
@@ -111,7 +110,7 @@ export class ClusterIPC<C extends DiscordClient> extends EventDispatcher {
    */
   private async _message(msg: NodeMessage): Promise<void> {
     const { op, d } = msg.data;
-    if (op === IPCEvents.EVAL) {
+    if (op === IPCEvent.EVAL) {
       let evaluated;
       try {
         evaluated = await this._eval(d);
@@ -125,6 +124,13 @@ export class ClusterIPC<C extends DiscordClient> extends EventDispatcher {
       msg.reply({ success: true, d: evaluated });
     }
   }
+}
+
+export type EvalScript = string | ((this: Client, ...args: unknown[]) => unknown | Promise<unknown[]>)
+
+export interface IPCRequest {
+  op: IPCEvent;
+  d: string;
 }
 
 export interface IPCResult {
