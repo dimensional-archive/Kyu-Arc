@@ -124,15 +124,15 @@ export class ShardingManager extends EventDispatcher {
   public async spawn(): Promise<void> {
     if (isMaster) {
       if (this.shardCount === "auto") {
-        this.emit("debug", "[Manager] Fetching Session Endpoint.");
+        this._debug("[Manager] Fetching Session Endpoint.");
 
         const { shards } = await this._fetchSession();
         this.shardCount = Math.ceil(shards * (1000 / this.guildsPerShard));
 
-        this.emit("debug", `[Manager] Using recommend shard count of ${this.shardCount} shards. With ${this.guildsPerShard} guilds per shard.`);
+        this._debug(`[Manager] Using recommend shard count of ${this.shardCount} shards. With ${this.guildsPerShard} guilds per shard.`);
       }
 
-      this.emit("debug", `[Manager] Starting ${this.shardCount} shards in ${this.clusterCount} clusters.`);
+      this._debug(`[Manager] Starting ${this.shardCount} shards in ${this.clusterCount} clusters.`);
       if (this.shardCount < this.clusterCount) this.clusterCount = this.shardCount;
 
       const shardArray = [ ...Array(this.shardCount).keys() ];
@@ -149,11 +149,11 @@ export class ShardingManager extends EventDispatcher {
           await cluster.spawn();
           this.clusters.set(i, cluster);
         } catch (e) {
-          this.emit("debug", `[cluster-${i}] Failed to Spawn.`);
+          this.emit(SharderEvent.DEBUG, `[cluster-${i}] Failed to Spawn.`);
           this.emit(SharderEvent.ERROR, new Error(`Cluster ${i} failed to start.`));
 
           if (this.retry) {
-            this.emit("debug", `[cluster-${i}] Queueing for respawn.`);
+            this._debug(`[cluster-${i}] Queueing for respawn.`);
             failed.push(cluster);
           }
         }
@@ -200,7 +200,7 @@ export class ShardingManager extends EventDispatcher {
    * Restarts all clusters.
    */
   public async respawnAll(): Promise<void> {
-    this.emit("debug", "[Manager] Respawning all clusters...");
+    this._debug("[Manager] Respawning all clusters...");
     for (const [ , cluster ] of this.clusters) await cluster.respawn();
   }
 
@@ -211,7 +211,7 @@ export class ShardingManager extends EventDispatcher {
   public async restart(clusterId: number): Promise<void> {
     const cluster = this.clusters.get(clusterId);
     if (cluster) {
-      this.emit("debug", `[Manager] Respawning Cluster: ${clusterId}`);
+      this._debug(`[Manager] Respawning Cluster: ${clusterId}`);
       return cluster.respawn();
     }
 
@@ -226,18 +226,18 @@ export class ShardingManager extends EventDispatcher {
 
     for (const cluster of clusters) {
       try {
-        this.emit("debug", `[cluster-${cluster.id}] Respawning.`);
+        this._debug(`[cluster-${cluster.id}] Respawning.`);
         await cluster.spawn();
         this.clusters.set(cluster.id, cluster);
       } catch (e) {
-        this.emit("debug", `[cluster-${cluster.id}] Failed to restart, re-queueing.`);
-        this.emit("error", e, cluster.id);
+        this._debug(`[cluster-${cluster.id}] Failed to restart, re-queueing.`);
+        this.emit(SharderEvent.ERROR, e, cluster.id);
       }
     }
 
     if (failed.length && tries !== this.retries) {
       tries++;
-      this.emit("debug", `[Manager] ${failed.length} clusters that still failed. Retry ${tries} out of ${this.retries}.`);
+      this._debug(`[Manager] ${failed.length} clusters that still failed. Retry ${tries} out of ${this.retries}.`);
       return this.retryFailed(failed, tries);
     }
   }
@@ -262,9 +262,42 @@ export class ShardingManager extends EventDispatcher {
     if (res.ok) return res.json();
     throw res;
   }
+
+  /**
+   * @private
+   */
+  private _debug(message: string): void {
+    this.emit(SharderEvent.DEBUG, message);
+  }
 }
 
 export type CreateClient = (token: string, options: ClientOptions) => Client;
+
+export interface ShardingManager {
+  on(event: SharderEvent.DEBUG, listener: (message: string) => void): this;
+
+  on(event: SharderEvent.MESSAGE, listener: (message: unknown) => void): this;
+
+  on(event: SharderEvent.READY | SharderEvent.SPAWN, listener: (cluster: Cluster) => void): this;
+
+  on(event: SharderEvent.SHARD_READY | SharderEvent.SHARD_RECONNECT, listener: (shardId: number) => void): this;
+
+  on(event: SharderEvent.SHARD_RESUME, listener: (shardId: number, replayed: number) => void): this;
+
+  on(event: SharderEvent.SHARD_DISCONNECT, listener: (shardId: number) => void): this;
+
+  once(event: SharderEvent.DEBUG, listener: (message: string) => void): this;
+
+  once(event: SharderEvent.MESSAGE, listener: (message: unknown) => void): this;
+
+  once(event: SharderEvent.READY | SharderEvent.SPAWN, listener: (cluster: Cluster) => void): this;
+
+  once(event: SharderEvent.SHARD_READY | SharderEvent.SHARD_RECONNECT, listener: (shardId: number) => void): this;
+
+  once(event: SharderEvent.SHARD_RESUME, listener: (shardId: number, replayed: number) => void): this;
+
+  once(event: SharderEvent.SHARD_DISCONNECT, listener: (shardId: number) => void): this;
+}
 
 export interface SharderOptions {
   token: string;

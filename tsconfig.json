@@ -17,6 +17,7 @@
     "allowJs": true,
     "rootDir": "./src",
     "outDir": "./dist",
+    "importHelpers": true,
 
     /* Strict Options */
     "strict": true,

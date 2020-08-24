@@ -1,9 +1,10 @@
-# @kyudiscord/sharder
+# @kyudiscord/arc
 
-> A sharder for [@kyudiscord/neo](https://github.com/kyudiscord/neo), our discord library. 
+> A powerful sharding library based off [kurasuta](https://npmjs.com/kurasuta) by **[DevYukine](https://github.com/devyukine)**
 
-_p.s. this is based off [Kurasuta](https://github.com/DevYukine/Kurasuta) by [DevYukine](https://github.com/devyukine)_
+- **[Discord Server](https://discord.gg/FKDZ9DX)**
+- **[Github Repository](https://github.com/kyudiscord/arc)**
 
 ---
 
-[melike2d] &copy; 2020
+> **arc** is authored by *[melike2d](https://melike2d.me/)*. For any inquiries please contact `2D#5773` on Discord. 

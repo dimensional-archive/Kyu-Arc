@@ -1,6 +1,5 @@
 import { Client as DiscordClient, Client, EventDispatcher } from "@kyudiscord/neo";
 import { Client as VezaClient, ClientSocket, NodeMessage } from "veza";
-import { createContext, runInContext } from "vm";
 import { IPCEvent, makeError } from "../../util";
 
 export class ClusterIPC<C extends DiscordClient> extends EventDispatcher {
@@ -100,8 +99,7 @@ export class ClusterIPC<C extends DiscordClient> extends EventDispatcher {
    * @param script The code to evaluate.
    */
   private _eval(script: string): unknown {
-    const context = createContext(this.discord);
-    return runInContext(script, context);
+    return this.discord.eval(script);
   }
 
   /**
